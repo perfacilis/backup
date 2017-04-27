@@ -3,8 +3,8 @@
 # Description:  Create back-ups of dirs and dbs by copying them to Perfacilis' back-up servers
 #               We strongly recommend to put this in /etc/cron.daily
 # Author:       Roy Arisse <support@perfacilis.com>
-# See:          http://admin.perfacilis.com
-# Version:      0.2
+# See:          https://admin.perfacilis.com
+# Version:      0.3
 # Usage:        bash /etc/cron.daily/makebackup.sh
 
 # Force consistent directory names by using POSIX locale
@@ -14,7 +14,7 @@ NBACKUPS=30
 
 # The folders to back-up, separate with a space between each
 BACKUP_DIRS=(/home /root /etc /var/www /backup)
-EXCLUDE_DIRS="temp/,tmp/,.cache/,log/,logs/,*.log"
+EXCLUDE="temp/,tmp/,cache/,.cache/,log/,logs/,*.log"
 BACKUP_DEST_DIR=/backup/
 
 RSYNC_SECRET=`dirname $0`/rsync.secret
@@ -28,13 +28,6 @@ MYSQLDUMP="mysqldump --defaults-file=/etc/mysql/debian.cnf --events --routines -
 # Ensure tempfiles are removed when done
 trap "rm -f $RSYNC_SECRET $RSYNC_EXCLUDE" EXIT
 
-# Put password in secret file, since its more secure than 'export RSYNC_PASSWORD=...'
-echo 'RSYNCSECRETHERE' > $RSYNC_SECRET
-chmod 600 $RSYNC_SECRET
-
-# Prepare exclusion file
-printf "${EXCLUDE_DIRS//,/\n}" > $RSYNC_EXCLUDE
-
 # Log output
 log() {
   MSG=`echo $1`
@@ -45,6 +38,13 @@ log() {
     echo $MSG
   fi
 }
+
+# Put password in secret file, since its more secure than 'export RSYNC_PASSWORD=...'
+echo 'RSYNCSECRETHERE' > $RSYNC_SECRET
+chmod 600 $RSYNC_SECRET
+
+# Prepare exclusion file
+printf "${EXCLUDE//,/\n}" > $RSYNC_EXCLUDE
 
 # Show date and time so we can monitor duration if needed
 log "Back-up initiated at `date`"
@@ -67,7 +67,7 @@ if [ -f $BACKUP_DEST_DIR/.last ]; then
 fi
 
 if [ ! -z "$LAST" ]; then
-  NEXT=$(echo "$LAST+1" | bc)
+  NEXT=$(($LAST+1))
   if [ "$NEXT" -ge "$NBACKUPS" ]; then
     LAST=""
     NEXT=0
@@ -85,8 +85,7 @@ for DB in `$MYSQL -e 'show databases' | grep -v Database`; do
   log "- $DB"
 
   SQLDUMP_FILE=$BACKUP_DEST_DIR/$DB.sql
-  $MYSQLDUMP $DB > $SQLDUMP_FILE
-  gzip -f $SQLDUMP_FILE
+  $MYSQLDUMP $DB | gzip > $SQLDUMP_FILE.gz
 done
 
 # List of installed packages, this can be used with "dpkg --set-selections < packagelist.txt && apt-get dselect-upgrade -y"
