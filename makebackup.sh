@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.daily
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://admin.perfacilis.com
-# Version:      0.3
+# Version:      0.4
 # Usage:        bash /etc/cron.daily/makebackup.sh
 
 # Force consistent directory names by using POSIX locale
@@ -13,7 +13,7 @@ export LC_ALL=C
 NBACKUPS=30
 
 # The folders to back-up, separate with a space between each
-BACKUP_DIRS=(/home /root /etc /var/www /backup)
+BACKUP_DIRS=(/etc /home /root /var/www /backup)
 EXCLUDE="temp/,tmp/,cache/,.cache/,log/,logs/,*.log"
 BACKUP_DEST_DIR=/backup/
 
@@ -53,12 +53,13 @@ log "Back-up initiated at `date`"
 log "Setting up backup directory"
 if [ ! -d $BACKUP_DEST_DIR ]; then
   mkdir -p $BACKUP_DEST_DIR
-
-  # Ensure dir "0" exists remotely
-  [ -d /tmp/emptydir ] || mkdir /tmp/emptydir
-  ${RSYNC/--delete* /} /tmp/emptydir/ $RSYNC_PROFILE/0
-  rm -r /tmp/emptydir
 fi
+
+echo "Ensure dir '0' exists remotely, with proper mtime"
+[ -d /tmp/emptydir ] || mkdir /tmp/emptydir
+touch /tmp/emptydir
+${RSYNC/--delete* /} /tmp/emptydir/ $RSYNC_PROFILE/0
+rm -r /tmp/emptydir
 
 LAST=""
 NEXT=0
@@ -83,9 +84,7 @@ for DB in `$MYSQL -e 'show databases' | grep -v Database`; do
   fi
 
   log "- $DB"
-
-  SQLDUMP_FILE=$BACKUP_DEST_DIR/$DB.sql
-  $MYSQLDUMP $DB | gzip > $SQLDUMP_FILE.gz
+  $MYSQLDUMP $DB | gzip > $BACKUP_DEST_DIR/$DB.sql.gz
 done
 
 # List of installed packages, this can be used with "dpkg --set-selections < packagelist.txt && apt-get dselect-upgrade -y"
