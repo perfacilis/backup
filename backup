@@ -1,0 +1,169 @@
+#!/bin/bash
+# Title:        Perfacilis Incremental Back-up script
+# Description:  Create back-ups of dirs and dbs by copying them to Perfacilis' back-up servers
+#               We strongly recommend to put this in /etc/cron.hourly
+# Author:       Roy Arisse <support@perfacilis.com>
+# See:          https://admin.perfacilis.com
+# Version:      0.5
+# Usage:        bash /etc/cron.hourly/backup
+
+readonly BACKUP_LOCAL_DIR=/backup
+readonly BACKUP_DIRS=(/etc /home /root /var/www $BACKUP_LOCAL_DIR)
+
+readonly RSYNC_PROFILE="username@backup.perfacilis.com::profile"
+readonly RSYNC_DEFAULTS="-trlqz4 --delete --delete-excluded --prune-empty-dirs"
+readonly RSYNC_EXCLUDE=(temp/ tmp/ .cache/ log/ logs/ *.log)
+readonly RSYNC_SECRET='RSYNCSECRETHERE'
+
+readonly MYSQL="mysql --defaults-file=/etc/mysql/debian.cnf"
+readonly MYSQLDUMP="mysqldump --defaults-file=/etc/mysql/debian.cnf --events --routines --max-allowed-packet=512MB --quick --quote-names --skip-comments"
+
+readonly INTERVAL=$((3600*24))
+readonly INCREMENTS=28
+
+log() {
+  MSG=`echo $1`
+  logger -p local0.notice -t `basename $0` -- $MSG
+
+  # Interactive shell
+  if tty -s; then
+    echo $MSG
+  fi
+}
+
+prepare_local_dir() {
+  if [ ! -d $BACKUP_LOCAL_DIR ]; then
+    mkdir -p $BACKUP_LOCAL_DIR
+    touch -d "January 1 1990" $BACKUP_LOCAL_DIR
+  fi
+}
+
+prepare_remote_dir() {
+  local RSYNC_OPTS=$(get_rsync_opts)
+  local EMPTYDIR=$(mktemp -d)
+
+  rsync ${RSYNC_OPTS//--delete* /} $EMPTYDIR/ $RSYNC_PROFILE/current
+  rm -rf $EMPTYDIR
+}
+
+check_interval() {
+  local LAST=$(stat -c %Y $BACKUP_LOCAL_DIR)
+  local NOW=$(date +%s)
+  local ELAPSED=$(($NOW - $LAST))
+
+  if [ "$ELAPSED" -lt "$INTERVAL" ]; then
+    log "Last backup was ${ELAPSED}s ago, which is less than ${INTERVAL}s."
+    exit
+   fi
+}
+
+get_next_increment() {
+  local LAST NEXT
+
+  if [ -f $BACKUP_LOCAL_DIR/last ]; then
+    LAST=$(cat $BACKUP_LOCAL_DIR/last | tr -d "\n")
+  fi
+
+  if [ -z "$LAST" ]; then
+    echo 0
+    return
+  fi
+
+  NEXT=$(($LAST+1))
+  if [ "$NEXT" -gt "$INCREMENTS" ]; then
+    echo 0
+    return
+  fi
+
+  echo $NEXT
+}
+
+get_rsync_opts() {
+  local EXCLUDE=`dirname $0`/rsync.exclude
+  local SECRET=`dirname $0`/rsync.secret
+
+  if [ ! -f $EXCLUDE ]; then
+    printf '%s\n' "${RSYNC_EXCLUDE[@]}" > $EXCLUDE
+  fi
+
+  if [ ! -f $SECRET ]; then
+    echo $RSYNC_SECRET > $SECRET
+    chmod 600 $SECRET
+  fi
+
+  echo "$RSYNC_DEFAULTS --exclude-from=$EXCLUDE --password-file=$SECRET"
+}
+
+backup_packagelist() {
+  log "Back-up list of installed packages"
+  dpkg --get-selections > $BACKUP_LOCAL_DIR/packagelist.txt
+}
+
+backup_mysql() {
+  local DB
+
+  log "Back-up mysql databases:"
+  for DB in `$MYSQL -e 'show databases' | grep -v 'Database'`; do
+    if [ $DB = 'information_schema' -o $DB = 'performance_schema' ]; then
+      continue
+    fi
+
+    log "- $DB"
+    $MYSQLDUMP $DB | gzip > $BACKUP_LOCAL_DIR/$DB.sql.gz
+  done
+}
+
+backup_folders() {
+  local RSYNC_OPTS=$(get_rsync_opts)
+  local DIR TARGET RSYNC
+  local INC=$(get_next_increment)
+  local VANISHED='^(file has vanished: |rsync warning: some files vanished before they could be transferred)'
+
+  log "Moving back-up to target: ${INC/#0/current}"
+  for DIR in ${BACKUP_DIRS[@]}; do
+    TARGET=${DIR/#\//}
+    TARGET=${TARGET//\//_}
+
+    RSYNC="rsync $RSYNC_OPTS"
+    if [ "$INC" -gt 0 ]; then
+      RSYNC="rsync $RSYNC_OPTS --backup --backup-dir=/$INC/$TARGET"
+    fi
+
+    log "- $DIR"
+    $RSYNC $DIR/ $RSYNC_PROFILE/current/$TARGET 2>&1 | (egrep -v "$VANISHED" || true)
+  done
+}
+
+signoff_interval() {
+  touch $BACKUP_LOCAL_DIR
+}
+
+signoff_increment() {
+  echo $(get_next_increment) > $BACKUP_LOCAL_DIR/last
+}
+
+cleanup() {
+  rm -f `dirname $0`/rsync.exclude
+  rm -f `dirname $0`/rsync.secret
+}
+
+main() {
+  log "Backup initiated at `date`"
+
+  trap "cleanup" EXIT
+
+  prepare_local_dir
+  prepare_remote_dir
+
+  check_interval
+
+  backup_mysql
+  backup_folders
+
+  signoff_interval
+  signoff_increment
+
+  log "Backup completed at `date`"
+}
+
+main
