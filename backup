@@ -4,22 +4,23 @@
 #               We strongly recommend to put this in /etc/cron.hourly
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://admin.perfacilis.com
-# Version:      0.5
+# Version:      0.6
 # Usage:        bash /etc/cron.hourly/backup
 
-readonly BACKUP_LOCAL_DIR=/backup
-readonly BACKUP_DIRS=(/etc /home /root /var/www $BACKUP_LOCAL_DIR)
+readonly BACKUP_LOCAL_DIR="/backup"
+readonly BACKUP_DIRS=($BACKUP_LOCAL_DIR /home /root /etc /var/www)
 
-readonly RSYNC_PROFILE="username@backup.perfacilis.com::profile"
+readonly RSYNC_TARGET="username@backup.perfacilis.com::profile"
 readonly RSYNC_DEFAULTS="-trlqz4 --delete --delete-excluded --prune-empty-dirs"
-readonly RSYNC_EXCLUDE=(temp/ tmp/ .cache/ log/ logs/ *.log)
+readonly RSYNC_EXCLUDE=(/tmp /temp)
 readonly RSYNC_SECRET='RSYNCSECRETHERE'
 
 readonly MYSQL="mysql --defaults-file=/etc/mysql/debian.cnf"
 readonly MYSQLDUMP="mysqldump --defaults-file=/etc/mysql/debian.cnf --events --routines --max-allowed-packet=512MB --quick --quote-names --skip-comments"
 
-readonly INTERVAL=$((3600*24))
-readonly INCREMENTS=28
+# Amount of increments per interval and duration per interval resp.
+readonly -A INCREMENTS=([daily]=7 [weekly]=4 [monthly]=12 [annual]=5)
+readonly -A DURATIONS=([daily]=86400 [weekly]=604800 [monthly]=2419200 [annual]=31536000)
 
 log() {
   MSG=`echo $1`
@@ -32,36 +33,56 @@ log() {
 }
 
 prepare_local_dir() {
-  if [ ! -d $BACKUP_LOCAL_DIR ]; then
-    mkdir -p $BACKUP_LOCAL_DIR
-    touch -d "January 1 1990" $BACKUP_LOCAL_DIR
-  fi
+  [ -d $BACKUP_LOCAL_DIR ] || mkdir -p $BACKUP_LOCAL_DIR
 }
 
 prepare_remote_dir() {
+  local TARGET="$1"
   local RSYNC_OPTS=$(get_rsync_opts)
   local EMPTYDIR=$(mktemp -d)
+  local DIR TREE
 
-  rsync ${RSYNC_OPTS//--delete* /} $EMPTYDIR/ $RSYNC_PROFILE/current
+  if [ -z "$TARGET" ]; then
+    echo "Usage: prepare_remote_dir remote/dir/structure"
+    exit 1
+  fi
+
+  # Remove opions that delete empty dir
+  RSYNC_OPTS=$(echo "$RSYNC_OPTS" | sed -E 's/--(delete|delete-excluded|prune-empty-dirs)//g')
+
+  for DIR in ${TARGET//\// }; do
+    TREE="$TREE/$DIR"
+    rsync $RSYNC_OPTS $EMPTYDIR/ $RSYNC_TARGET/${TREE/#\//}
+  done
+
   rm -rf $EMPTYDIR
 }
 
-check_interval() {
-  local LAST=$(stat -c %Y $BACKUP_LOCAL_DIR)
-  local NOW=$(date +%s)
-  local ELAPSED=$(($NOW - $LAST))
+get_last_inc_file() {
+  local PERIOD="$1"
 
-  if [ "$ELAPSED" -lt "$INTERVAL" ]; then
-    log "Last backup was ${ELAPSED}s ago, which is less than ${INTERVAL}s."
-    exit
-   fi
+  if [ -z "$PERIOD" ]; then
+    echo "Usage: ${FUNCTION[0]} daily"
+    exit 1
+  fi
+
+  echo "$BACKUP_LOCAL_DIR/last_inc_$PERIOD"
 }
 
 get_next_increment() {
-  local LAST NEXT
+  local PERIOD="$1"
+  local LIMIT="${INCREMENTS[$PERIOD]}"
+  local LAST NEXT INCFILE
 
-  if [ -f $BACKUP_LOCAL_DIR/last ]; then
-    LAST=$(cat $BACKUP_LOCAL_DIR/last | tr -d "\n")
+  if [ -z "$PERIOD" -o -z "$LIMIT" ]; then
+    echo "Usage: get_next_increment period"
+    echo "- period = 'hourly', 'daily', 'weekly', 'monthly'"
+    exit 1
+  fi
+
+  INCFILE=$(get_last_inc_file $PERIOD)
+  if [ -f "$INCFILE" ]; then
+    LAST=$(cat "$INCFILE" | tr -d "\n")
   fi
 
   if [ -z "$LAST" ]; then
@@ -70,7 +91,7 @@ get_next_increment() {
   fi
 
   NEXT=$(($LAST+1))
-  if [ "$NEXT" -gt "$INCREMENTS" ]; then
+  if [ "$NEXT" -gt "$LIMIT" ]; then
     echo 0
     return
   fi
@@ -78,29 +99,77 @@ get_next_increment() {
   echo $NEXT
 }
 
+get_intervals_to_backup() {
+  local NOW=$(date +%s)
+  local LAST PERIOD INCFILE DURATION DIFF
+  local PERIODS=()
+
+  for PERIOD in "${!DURATIONS[@]}"; do
+    # Skip disabled intervals
+    if [[ ${INCREMENTS[$PERIOD]} -eq 0 ]]; then
+      continue;
+    fi
+
+    LAST=0
+    INCFILE=$(get_last_inc_file $PERIOD)
+    if [ -f "$INCFILE" ]; then
+      LAST=$(date +%s -r "$INCFILE")
+    fi
+
+    DURATION=${DURATIONS[$PERIOD]}
+    DIFF=$(($NOW - $LAST))
+    if [ $DIFF -gt $DURATION ]; then
+      PERIODS+=("$PERIOD")
+    fi
+  done
+
+  echo "${PERIODS[*]}"
+}
+
 get_rsync_opts() {
   local EXCLUDE=`dirname $0`/rsync.exclude
   local SECRET=`dirname $0`/rsync.secret
+  local OPTS="$RSYNC_DEFAULTS"
 
-  if [ ! -f $EXCLUDE ]; then
-    printf '%s\n' "${RSYNC_EXCLUDE[@]}" > $EXCLUDE
+  if [ ! -z '$RSYNC_EXCLUDE' ]; then
+    if [ ! -f $EXCLUDE ]; then
+      printf '%s\n' "${RSYNC_EXCLUDE[@]}" > $EXCLUDE
+      chmod 600 $EXCLUDE
+    fi
+
+    OPTS="$OPTS --exclude-from=$EXCLUDE"
   fi
 
-  if [ ! -f $SECRET ]; then
-    echo $RSYNC_SECRET > $SECRET
-    chmod 600 $SECRET
+  if [ ! -z '$RSYNC_SECRET' ]; then
+    if [ ! -f $SECRET ]; then
+      echo $RSYNC_SECRET > $SECRET
+      chmod 600 $SECRET
+    fi
+
+    OPTS="$OPTS --password-file=$SECRET"
   fi
 
-  echo "$RSYNC_DEFAULTS --exclude-from=$EXCLUDE --password-file=$SECRET"
+  echo "$OPTS"
 }
 
 backup_packagelist() {
+  local TODO=$(get_intervals_to_backup)
+
+  if [ -z "$TODO" ]; then
+    return
+  fi
+
   log "Back-up list of installed packages"
   dpkg --get-selections > $BACKUP_LOCAL_DIR/packagelist.txt
 }
 
 backup_mysql() {
+  local TODO=$(get_intervals_to_backup)
   local DB
+
+  if [ -z "$TODO" ]; then
+    return
+  fi
 
   log "Back-up mysql databases:"
   for DB in `$MYSQL -e 'show databases' | grep -v 'Database'`; do
@@ -115,31 +184,45 @@ backup_mysql() {
 
 backup_folders() {
   local RSYNC_OPTS=$(get_rsync_opts)
-  local DIR TARGET RSYNC
-  local INC=$(get_next_increment)
+  local DIR TARGET RSYNC INC
   local VANISHED='^(file has vanished: |rsync warning: some files vanished before they could be transferred)'
+  local TODO=$(get_intervals_to_backup)
 
-  log "Moving back-up to target: ${INC/#0/current}"
-  for DIR in ${BACKUP_DIRS[@]}; do
-    TARGET=${DIR/#\//}
-    TARGET=${TARGET//\//_}
+  if [ -z "$TODO" ]; then
+    log "No intervals to back-up yet."
+    exit
+  fi
 
-    RSYNC="rsync $RSYNC_OPTS"
-    if [ "$INC" -gt 0 ]; then
-      RSYNC="rsync $RSYNC_OPTS --backup --backup-dir=/$INC/$TARGET"
-    fi
+  for PERIOD in $TODO; do
+    INC=$(get_next_increment $PERIOD)
+    log "Moving $PERIOD back-up to target: ${INC/#0/current}"
 
-    log "- $DIR"
-    $RSYNC $DIR/ $RSYNC_PROFILE/current/$TARGET 2>&1 | (egrep -v "$VANISHED" || true)
+    for DIR in ${BACKUP_DIRS[@]}; do
+      TARGET=${DIR/#\//}
+      TARGET=${TARGET//\//_}
+
+      RSYNC="rsync $RSYNC_OPTS"
+      if [ "$INC" -gt 0 ]; then
+        RSYNC="rsync $RSYNC_OPTS --backup --backup-dir=$RSYNC_TARGET/$PERIOD/$INC/$TARGET"
+      fi
+
+      log "- $DIR"
+      prepare_remote_dir "$PERIOD/current"
+      $RSYNC $DIR/ $RSYNC_TARGET/$PERIOD/current/$TARGET 2>&1 | (egrep -v "$VANISHED" || true)
+    done
+
   done
 }
 
-signoff_interval() {
-  touch $BACKUP_LOCAL_DIR
-}
+signoff_increments() {
+  local TODO=$(get_intervals_to_backup)
+  local PERIOD INC INCFILE
 
-signoff_increment() {
-  echo $(get_next_increment) > $BACKUP_LOCAL_DIR/last
+  for PERIOD in $TODO; do
+    INC=$(get_next_increment $PERIOD)
+    INCFILE=$(get_last_inc_file $PERIOD)
+    echo $INC > "$INCFILE"
+  done
 }
 
 cleanup() {
@@ -148,22 +231,19 @@ cleanup() {
 }
 
 main() {
-  log "Backup initiated at `date`"
+  log "Back-up initiated at `date`"
 
   trap "cleanup" EXIT
 
   prepare_local_dir
-  prepare_remote_dir
 
-  check_interval
-
+  backup_packagelist
   backup_mysql
   backup_folders
 
-  signoff_interval
-  signoff_increment
+  signoff_increments
 
-  log "Backup completed at `date`"
+  log "Back-up completed at `date`"
 }
 
 main
