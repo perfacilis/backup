@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://admin.perfacilis.com
-# Version:      0.6
+# Version:      0.7
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -12,15 +12,19 @@ readonly BACKUP_DIRS=($BACKUP_LOCAL_DIR /home /root /etc /var/www)
 
 readonly RSYNC_TARGET="username@backup.perfacilis.com::profile"
 readonly RSYNC_DEFAULTS="-trlqz4 --delete --delete-excluded --prune-empty-dirs"
-readonly RSYNC_EXCLUDE=(/tmp /temp)
+readonly RSYNC_EXCLUDE=(tmp/ temp/)
 readonly RSYNC_SECRET='RSYNCSECRETHERE'
 
 readonly MYSQL="mysql --defaults-file=/etc/mysql/debian.cnf"
 readonly MYSQLDUMP="mysqldump --defaults-file=/etc/mysql/debian.cnf --events --routines --max-allowed-packet=512MB --quick --quote-names --skip-comments"
 
 # Amount of increments per interval and duration per interval resp.
-readonly -A INCREMENTS=([daily]=7 [weekly]=4 [monthly]=12 [annual]=5)
-readonly -A DURATIONS=([daily]=86400 [weekly]=604800 [monthly]=2419200 [annual]=31536000)
+readonly -A INCREMENTS=([daily]=7 [weekly]=4 [monthly]=12 [yearly]=5)
+readonly -A DURATIONS=([daily]=86400 [weekly]=604800 [monthly]=2419200 [yearly]=31536000)
+
+# ++++++++++ NO CHANGES REQUIRED BELOW THIS LINE ++++++++++
+
+export LC_ALL=C
 
 log() {
   MSG=`echo $1`
