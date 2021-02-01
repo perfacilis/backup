@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://admin.perfacilis.com
-# Version:      0.7
+# Version:      0.7.1
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -207,7 +207,7 @@ backup_folders() {
 
       RSYNC="rsync $RSYNC_OPTS"
       if [ "$INC" -gt 0 ]; then
-        RSYNC="rsync $RSYNC_OPTS --backup --backup-dir=$RSYNC_TARGET/$PERIOD/$INC/$TARGET"
+        RSYNC="rsync $RSYNC_OPTS --backup --backup-dir=/$PERIOD/$INC/$TARGET"
       fi
 
       log "- $DIR"
