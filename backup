@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://admin.perfacilis.com
-# Version:      0.7.1
+# Version:      0.8
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -211,8 +211,8 @@ backup_folders() {
       fi
 
       log "- $DIR"
-      prepare_remote_dir "$PERIOD/current"
-      $RSYNC $DIR/ $RSYNC_TARGET/$PERIOD/current/$TARGET 2>&1 | (egrep -v "$VANISHED" || true)
+      prepare_remote_dir "current"
+      $RSYNC $DIR/ $RSYNC_TARGET/current/$TARGET 2>&1 | (egrep -v "$VANISHED" || true)
     done
 
   done
