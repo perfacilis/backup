@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://admin.perfacilis.com
-# Version:      0.8
+# Version:      0.8.1
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -16,11 +16,11 @@ readonly RSYNC_EXCLUDE=(tmp/ temp/)
 readonly RSYNC_SECRET='RSYNCSECRETHERE'
 
 readonly MYSQL="mysql --defaults-file=/etc/mysql/debian.cnf"
-readonly MYSQLDUMP="mysqldump --defaults-file=/etc/mysql/debian.cnf --events --routines --max-allowed-packet=512MB --quick --quote-names --skip-comments"
+readonly MYSQLDUMP="mysqldump --defaults-file=/etc/mysql/debian.cnf -E -R --max-allowed-packet=512MB -q --single-transaction -Q --skip-comments"
 
 # Amount of increments per interval and duration per interval resp.
-readonly -A INCREMENTS=([daily]=7 [weekly]=4 [monthly]=12 [yearly]=5)
-readonly -A DURATIONS=([daily]=86400 [weekly]=604800 [monthly]=2419200 [yearly]=31536000)
+readonly -A INCREMENTS=([hourly]=24 [daily]=7 [weekly]=4 [monthly]=12 [yearly]=5)
+readonly -A DURATIONS=([hourly]=3600 [daily]=86400 [weekly]=604800 [monthly]=2419200 [yearly]=31536000)
 
 # ++++++++++ NO CHANGES REQUIRED BELOW THIS LINE ++++++++++
 
@@ -33,6 +33,15 @@ log() {
   # Interactive shell
   if tty -s; then
     echo $MSG
+  fi
+}
+
+check_only_instance() {
+  local self=$(basename $0)
+
+  if pidof -o %PPID -x "$self" >/dev/null; then
+    log "Already running"
+    exit 0
   fi
 }
 
@@ -239,6 +248,7 @@ main() {
 
   trap "cleanup" EXIT
 
+  check_only_instance
   prepare_local_dir
 
   backup_packagelist
