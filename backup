@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://admin.perfacilis.com
-# Version:      0.8.1
+# Version:      0.8.2
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -65,7 +65,7 @@ prepare_remote_dir() {
 
   for DIR in ${TARGET//\// }; do
     TREE="$TREE/$DIR"
-    rsync $RSYNC_OPTS $EMPTYDIR/ $RSYNC_TARGET/${TREE/#\//}
+    rsync $RSYNC_OPTS $EMPTYDIR $RSYNC_TARGET/${TREE/#\//}
   done
 
   rm -rf $EMPTYDIR
