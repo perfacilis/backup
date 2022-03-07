@@ -4,14 +4,14 @@
 #               We strongly recommend to put this in /etc/cron.hourly
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://admin.perfacilis.com
-# Version:      0.8.2
+# Version:      0.9
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
 readonly BACKUP_DIRS=($BACKUP_LOCAL_DIR /home /root /etc /var/www)
 
 readonly RSYNC_TARGET="username@backup.perfacilis.com::profile"
-readonly RSYNC_DEFAULTS="-trlqz4 --delete --delete-excluded --prune-empty-dirs"
+readonly RSYNC_DEFAULTS="-trlqpz4 --delete --delete-excluded --prune-empty-dirs"
 readonly RSYNC_EXCLUDE=(tmp/ temp/)
 readonly RSYNC_SECRET='RSYNCSECRETHERE'
 
@@ -208,26 +208,23 @@ backup_folders() {
 
   for PERIOD in $TODO; do
     INC=$(get_next_increment $PERIOD)
-    log "Moving $PERIOD back-up to target: ${INC/#0/current}"
+    log "Moving $PERIOD back-up to target: $INC"
 
     for DIR in ${BACKUP_DIRS[@]}; do
       TARGET=${DIR/#\//}
       TARGET=${TARGET//\//_}
-
-      RSYNC="rsync $RSYNC_OPTS"
-      if [ "$INC" -gt 0 ]; then
-        RSYNC="rsync $RSYNC_OPTS --backup --backup-dir=/$PERIOD/$INC/$TARGET"
-      fi
-
+  
       log "- $DIR"
       prepare_remote_dir "current"
-      $RSYNC $DIR/ $RSYNC_TARGET/current/$TARGET 2>&1 | (egrep -v "$VANISHED" || true)
+      rsync $RSYNC_OPTS --backup --backup-dir=/$PERIOD/$INC/$TARGET \
+        $DIR/ $RSYNC_TARGET/current/$TARGET 2>&1 | (egrep -v "$VANISHED" || true)
     done
 
   done
 }
 
 signoff_increments() {
+  local STARTTIME="$1"
   local TODO=$(get_intervals_to_backup)
   local PERIOD INC INCFILE
 
@@ -235,6 +232,7 @@ signoff_increments() {
     INC=$(get_next_increment $PERIOD)
     INCFILE=$(get_last_inc_file $PERIOD)
     echo $INC > "$INCFILE"
+    touch -d "@$STARTTIME" "$INCFILE"
   done
 }
 
@@ -244,6 +242,8 @@ cleanup() {
 }
 
 main() {
+  starttime=$(date +%s)
+
   log "Back-up initiated at `date`"
 
   trap "cleanup" EXIT
@@ -255,7 +255,7 @@ main() {
   backup_mysql
   backup_folders
 
-  signoff_increments
+  signoff_increments $starttime
 
   log "Back-up completed at `date`"
 }
