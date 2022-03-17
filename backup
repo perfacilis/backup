@@ -1,10 +1,10 @@
 #!/bin/bash
 # Title:        Perfacilis Incremental Back-up script
 # Description:  Create back-ups of dirs and dbs by copying them to Perfacilis' back-up servers
-#               We strongly recommend to put this in /etc/cron.hourly
+#               We strongly recommend to put this in /etc/cron.hourly/backup
 # Author:       Roy Arisse <support@perfacilis.com>
-# See:          https://admin.perfacilis.com
-# Version:      0.9
+# See:          https://www.perfacilis.com/blog/systeembeheer/linux/rsync-daily-weekly-monthly-incremental-back-ups.html
+# Version:      0.9.1
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -181,6 +181,11 @@ backup_mysql() {
   local DB
 
   if [ -z "$TODO" ]; then
+    return
+  fi
+
+  if [ -z "$MYSQL" -o -z "$MYSQLDUMP" ]; then
+    log "MySQL not set up, skipping database backup."
     return
   fi
 
