@@ -144,7 +144,7 @@ get_rsync_opts() {
   local SECRET=`dirname $0`/rsync.secret
   local OPTS="$RSYNC_DEFAULTS"
 
-  if [ ! -z '$RSYNC_EXCLUDE' ]; then
+  if [ ! -z "$RSYNC_EXCLUDE" ]; then
     if [ ! -f $EXCLUDE ]; then
       printf '%s\n' "${RSYNC_EXCLUDE[@]}" > $EXCLUDE
       chmod 600 $EXCLUDE
@@ -153,7 +153,7 @@ get_rsync_opts() {
     OPTS="$OPTS --exclude-from=$EXCLUDE"
   fi
 
-  if [ ! -z '$RSYNC_SECRET' ]; then
+  if [ ! -z "$RSYNC_SECRET" ]; then
     if [ ! -f $SECRET ]; then
       echo $RSYNC_SECRET > $SECRET
       chmod 600 $SECRET
@@ -218,7 +218,7 @@ backup_folders() {
     for DIR in ${BACKUP_DIRS[@]}; do
       TARGET=${DIR/#\//}
       TARGET=${TARGET//\//_}
-  
+
       log "- $DIR"
       prepare_remote_dir "current"
       rsync $RSYNC_OPTS --backup --backup-dir=/$PERIOD/$INC/$TARGET \
