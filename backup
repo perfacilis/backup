@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly/backup
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://www.perfacilis.com/blog/systeembeheer/linux/rsync-daily-weekly-monthly-incremental-back-ups.html
-# Version:      0.9.2
+# Version:      0.9.3
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -237,7 +237,7 @@ signoff_increments() {
     INC=$(get_next_increment $PERIOD)
     INCFILE=$(get_last_inc_file $PERIOD)
     echo $INC > "$INCFILE"
-    touch -d "@$STARTTIME" "$INCFILE"
+    touch -t "$STARTTIME" "$INCFILE"
   done
 }
 
@@ -247,7 +247,7 @@ cleanup() {
 }
 
 main() {
-  starttime=$(date +%s)
+  starttime=$(date +%Y%m%d%H%M.%S)
 
   log "Back-up initiated at `date`"
 
