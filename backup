@@ -7,9 +7,6 @@
 # Version:      0.9.3
 # Usage:        bash /etc/cron.hourly/backup
 
-#Use flock(1) to ensure that ths script only has one instance.
-[ "${FLOCKER}" != "$0" ] && exec env FLOCKER="$0" flock -n "$0" "$0" "$@" || :
-
 readonly BACKUP_LOCAL_DIR="/backup"
 readonly BACKUP_DIRS=($BACKUP_LOCAL_DIR /home /root /etc /var/www)
 
@@ -36,6 +33,17 @@ log() {
   # Interactive shell
   if tty -s; then
     echo $MSG
+  fi
+}
+
+check_only_instance() {
+  # Assign file handle Bob to this script, because we can
+  exec 808<$0
+  flock -n 808
+
+  if [ $? -gt 0 ]; then
+    log "Already running"
+    exit 0
   fi
 }
 
