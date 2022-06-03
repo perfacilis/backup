@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly/backup
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://www.perfacilis.com/blog/systeembeheer/linux/rsync-daily-weekly-monthly-incremental-back-ups.html
-# Version:      0.9.3
+# Version:      0.10
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -37,9 +37,11 @@ log() {
 }
 
 check_only_instance() {
-  local self=$(basename $0)
+  # Assign file handle Bob to this script, because we can
+  exec 808<$0
+  flock -n 808
 
-  if pidof -o %PPID -x "$self" >/dev/null; then
+  if [ $? -gt 0 ]; then
     log "Already running"
     exit 0
   fi
