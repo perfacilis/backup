@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly/backup
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://www.perfacilis.com/blog/systeembeheer/linux/rsync-daily-weekly-monthly-incremental-back-ups.html
-# Version:      0.10.1
+# Version:      0.10.2
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -24,6 +24,7 @@ readonly -A DURATIONS=([hourly]=3600 [daily]=86400 [weekly]=604800 [monthly]=241
 
 # ++++++++++ NO CHANGES REQUIRED BELOW THIS LINE ++++++++++
 
+set -e
 export LC_ALL=C
 
 log() {
@@ -62,7 +63,7 @@ prepare_remote_dir() {
     exit 1
   fi
 
-  # Remove opions that delete empty dir
+  # Remove options that delete empty dir
   RSYNC_OPTS=$(echo "$RSYNC_OPTS" | sed -E 's/--(delete|delete-excluded|prune-empty-dirs)//g')
 
   for DIR in ${TARGET//\// }; do
@@ -204,7 +205,7 @@ backup_mysql() {
 
 backup_folders() {
   local RSYNC_OPTS=$(get_rsync_opts)
-  local DIR TARGET RSYNC INC
+  local DIR TARGET INC INCDIR
   local VANISHED='^(file has vanished: |rsync warning: some files vanished before they could be transferred)'
   local TODO=$(get_intervals_to_backup)
 
@@ -221,9 +222,15 @@ backup_folders() {
       TARGET=${DIR/#\//}
       TARGET=${TARGET//\//_}
 
+      # Make path absolute if target is not remote (not user@host)
+      INCDIR="/$PERIOD/$INC/$TARGET"
+      if echo $RSYNC_TARGET | grep -qv "@"; then
+        INCDIR="$RSYNC_TARGET$INCDIR"
+      fi
+
       log "- $DIR"
       prepare_remote_dir "current"
-      rsync $RSYNC_OPTS --backup --backup-dir=/$PERIOD/$INC/$TARGET \
+      rsync $RSYNC_OPTS --backup --backup-dir=$INCDIR \
         $DIR/ $RSYNC_TARGET/current/$TARGET 2>&1 | (egrep -v "$VANISHED" || true)
     done
 
