@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly/backup
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://www.perfacilis.com/blog/systeembeheer/linux/rsync-daily-weekly-monthly-incremental-back-ups.html
-# Version:      0.11
+# Version:      0.11.1
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -121,7 +121,10 @@ get_interval_to_backup() {
   local LAST PERIOD INCFILE DURATION DIFF
   local TODO=""
 
+  # Sort associative array: biggest first
   for PERIOD in "${!DURATIONS[@]}"; do
+    echo "${DURATIONS["$PERIOD"]} $PERIOD"
+  done | sort -rn | while read DURATION PERIOD; do
     # Skip disabled intervals
     if [[ ${INCREMENTS[$PERIOD]} -eq 0 ]]; then
       continue;
@@ -133,14 +136,12 @@ get_interval_to_backup() {
       LAST=$(date -r "$INCFILE" +%s)
     fi
 
-    DURATION=${DURATIONS[$PERIOD]}
     DIFF=$(($NOW - $LAST))
     if [ $DIFF -ge $DURATION ]; then
-      TODO="$PERIOD"
+      echo "$PERIOD"
+      break
     fi
   done
-
-  echo "$TODO"
 }
 
 get_rsync_opts() {
