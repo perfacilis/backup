@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly/backup
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://www.perfacilis.com/blog/systeembeheer/linux/rsync-daily-weekly-monthly-incremental-back-ups.html
-# Version:      0.11
+# Version:      0.11.1
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
