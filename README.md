@@ -6,7 +6,7 @@ Bash Rsync backup script free to use. I'm using this script to back-up all my
 Linux workstations and servers without (much) trouble, nonetheless this script 
 comes with no warranty whatsoever.
 
-## We're disparate for your feedback...
+## We're desperate for your feedback...
 
 ![GIF I like it a lot](https://i.imgflip.com/lo6p.gif)
 
