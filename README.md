@@ -33,6 +33,42 @@ sudo /etc/cron.hourly/backup
 tail -f /var/log/syslog | grep --color --line-buffered "backup:"
 ```
 
+## Basic usage
+
+### Rsync profile
+
+Default usage, backup to a server with an Rsync profile:
+
+```bash
+readonly RSYNC_TARGET="username@backup.perfacilis.com::profile"
+readonly RSYNC_DEFAULTS="-trlqpz4 --delete --delete-excluded --prune-empty-dirs"
+readonly RSYNC_EXCLUDE=(tmp/ temp/)
+readonly RSYNC_SECRET='RSYNCSECRETHERE'
+```
+
+### Local backup
+
+If you want to backup to a USB disk for example:
+
+```bash
+readonly RSYNC_TARGET="/media/user/backup_drive"
+readonly RSYNC_DEFAULTS="-trlqpz4 --delete --delete-excluded --prune-empty-dirs"
+readonly RSYNC_EXCLUDE=(tmp/ temp/)
+readonly RSYNC_SECRET=''
+```
+
+### Rsync over ssh
+
+Rsync using ssh to communicate instead of rsync profiles.
+You'll have to set up SSH Public Key authentication:
+
+```bash
+readonly RSYNC_TARGET="username@backup.perfacilis.com:/path/on/ssh/server"
+readonly RSYNC_DEFAULTS="-trlqpz4 --delete --delete-excluded --prune-empty-dirs -e 'ssh'"
+readonly RSYNC_EXCLUDE=(tmp/ temp/)
+readonly RSYNC_SECRET=''
+```
+
 ## Contributing
 
 Any bugs or ideas for improvement can be reported using GitHub's Issues thingy.
