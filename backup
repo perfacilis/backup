@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly/backup
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://www.perfacilis.com/blog/systeembeheer/linux/rsync-daily-weekly-monthly-incremental-back-ups.html
-# Version:      0.12
+# Version:      0.12.1
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -68,7 +68,7 @@ prepare_remote_dir() {
 
   for DIR in ${TARGET//\// }; do
     TREE="$TREE/$DIR"
-    rsync $RSYNC_OPTS $EMPTYDIR $RSYNC_TARGET/${TREE/#\//}
+    rsync $RSYNC_OPTS $EMPTYDIR/ $RSYNC_TARGET/${TREE/#\//}
   done
 
   rm -rf $EMPTYDIR
