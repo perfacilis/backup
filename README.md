@@ -18,6 +18,8 @@ http://g.page/perfacilis/review
 
 ## Installation
 
+### Installation on Linux
+
 Simply download the latest version, change the `readonly` variables in the first 
 few lines of the script and install it as an (hourly) cronjob. For example:
 
@@ -26,12 +28,44 @@ few lines of the script and install it as an (hourly) cronjob. For example:
 wget -qO- https://raw.githubusercontent.com/perfacilis/backup/master/backup | sudo tee /etc/cron.hourly/backup
 sudo chmod +x /etc/cron.hourly/backup
 
+# Change BACKUP_LOCAL_DIR, BACKUP_DIRS, etc
+nano /etc/cron.hourly/backup
+
 # Optionally run it manually
 sudo /etc/cron.hourly/backup
 
 # Or watch your syslog
 tail -f /var/log/syslog | grep --color --line-buffered "backup:"
 ```
+
+### Installation on Windows
+
+First, you'll need a Windows implementatin of Rsync, for example:
+    https://itefix.net/cwrsync-client
+Download the zip and extract into "C:\backup\rsync".
+
+Then, like the Linux installation, download the latest version, change the 
+variables in the first few lines and install a Scheduled Task. For example:
+
+```shell
+New-Item -Path "C:/backup" -ItemType Directory
+Set-Location C:/backup
+
+# Retrieve cwrsync free version (cygwin rsync)
+Invoke-WebRequest -Uri https://itefix.net/dl/free-software/cwrsync_6.2.8_x64_free.zip -Outfile rsync.zip
+Expand-Archive rsync.zip
+
+# Download the file, don't forget to change the settings!
+Invoke-WebRequest -Uri https://raw.githubusercontent.com/perfacilis/backup/master/backup -Outfile backup.ps1
+
+# Create an hourly scheduled task
+$action = New-ScheduledTaskAction -Execute "C:/backup/backup.ps1"
+$trigger = New-ScheduledTaskTrigger -RepetitionInterval "PT1H" -RepetitionDuration "PT1H"
+$settings = New-ScheduledTaskSettingsSet -RunOnlyIfNetworkAvailable
+$task = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Settings $settings
+Register-ScheduledTask 'backup' -InputObject $task
+```
+
 
 ## Basic usage
 
