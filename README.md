@@ -40,9 +40,9 @@ tail -f /var/log/syslog | grep --color --line-buffered "backup:"
 
 ### Installation on Windows
 
-First, you'll need a Windows implementatin of Rsync, for example:
+First, you'll need a Windows implementation of Rsync, for example:
     https://itefix.net/cwrsync-client
-Download the zip and extract into "C:\backup\rsync".
+Download the zip and extract so you get "C:\backup\rsync\bin\rsync.exe"
 
 Then, like the Linux installation, download the latest version, change the 
 variables in the first few lines and install a Scheduled Task. For example:
@@ -51,12 +51,14 @@ variables in the first few lines and install a Scheduled Task. For example:
 New-Item -Path "C:/backup" -ItemType Directory
 Set-Location C:/backup
 
-# Retrieve cwrsync free version (cygwin rsync)
-Invoke-WebRequest -Uri https://itefix.net/dl/free-software/cwrsync_6.2.8_x64_free.zip -Outfile rsync.zip
+# Retrieve cwrsync (cygwin rsync), run commented out TLS-fix for older pwsh versions
+#[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+Invoke-WebRequest -Uri https://itefix.net/dl/free-software/cwrsync_6.2.8_x64_free.zip -OutFile rsync.zip
 Expand-Archive rsync.zip
+Remove-Item rsync.zip
 
 # Download the file, don't forget to change the settings!
-Invoke-WebRequest -Uri https://raw.githubusercontent.com/perfacilis/backup/master/backup -Outfile backup.ps1
+Invoke-WebRequest -Uri https://raw.githubusercontent.com/perfacilis/backup/master/backup.bs1 -OutFile backup.ps1
 
 # Create an hourly scheduled task
 $action = New-ScheduledTaskAction -Execute "C:/backup/backup.ps1"
@@ -107,5 +109,5 @@ readonly RSYNC_SECRET=''
 
 Any bugs or ideas for improvement can be reported using GitHub's Issues thingy.
 
-If you know `bash` and see how this script can be improved, don't be shy and 
-create a Pull Request.
+If you know `bash` or `pwsh` and see how the scripts can be improved, don't be
+shy and create a Pull Request.
