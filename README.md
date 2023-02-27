@@ -1,12 +1,18 @@
 # RSYNC incremental backup script
 
-See: https://www.perfacilis.com/blog/systeembeheer/linux/rsync-daily-weekly-monthly-incremental-back-ups.html
+Rsync backup script free to use:
+- Linux implementation in bash
+    - See: https://www.perfacilis.com/blog/systeembeheer/linux/rsync-daily-weekly-monthly-incremental-back-ups.html
+- Windows implementation in Powershell
+    - See: https://www.perfacilis.com/blog/systeembeheer/windows/windows-incremental-back-up-using-rsync-and-powershell.html
 
-Bash Rsync backup script free to use. I'm using this script to back-up all my 
-Linux workstations and servers without (much) trouble, nonetheless this script 
-comes with no warranty whatsoever.
+I'm using this script to back-up all my Windows & Linux workstations and 
+servers without trouble, nonetheless this script comes with no warranty
+whatsoever.
 
-## We're desperate for your feedback...
+**Please check the integrity of your back-ups periodically!**
+
+## We're hoping for your feedback...
 
 ![GIF I like it a lot](https://i.imgflip.com/lo6p.gif)
 
@@ -60,12 +66,11 @@ Remove-Item rsync.zip
 # Download the file, don't forget to change the settings!
 Invoke-WebRequest -Uri https://raw.githubusercontent.com/perfacilis/backup/master/backup.bs1 -OutFile backup.ps1
 
-# Create an hourly scheduled task
-$action = New-ScheduledTaskAction -Execute "C:/backup/backup.ps1"
-$trigger = New-ScheduledTaskTrigger -RepetitionInterval "PT1H" -RepetitionDuration "PT1H"
-$settings = New-ScheduledTaskSettingsSet -RunOnlyIfNetworkAvailable
-$task = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Settings $settings
-Register-ScheduledTask 'backup' -InputObject $task
+# Create an hourly scheduled task, powershell flavour
+# See: Task Scheduler » Microsoft » Windows » Powershell » ScheduledJobs
+$trigger = New-JobTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Hours 1) -RepeatIndefinitely
+$callback = {Start-Process "powershell.exe" -ArgumentList "C:\backup\backup.ps1" -Wait -NoNewWindow}
+Register-ScheduledJob -Name "backup.ps1" -Trigger $trigger -MaxResultCount 99 -ScriptBlock $callback
 ```
 
 
