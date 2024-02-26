@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly/backup
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://www.perfacilis.com/blog/systeembeheer/linux/rsync-daily-weekly-monthly-incremental-back-ups.html
-# Version:      0.12.1
+# Version:      0.12.2
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -201,7 +201,7 @@ backup_mysql() {
     fi
 
     log "- $DB"
-    $MYSQLDUMP $DB | gzip > $BACKUP_LOCAL_DIR/$DB.sql.gz
+    $MYSQLDUMP $DB | gzip --rsyncable > $BACKUP_LOCAL_DIR/$DB.sql.gz
   done
 }
 
