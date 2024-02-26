@@ -110,6 +110,38 @@ readonly RSYNC_EXCLUDE=(tmp/ temp/)
 readonly RSYNC_SECRET=''
 ```
 
+## Mysqldump
+
+When `$MYSQL` and `$MYSQLDUMP` are not empty, the script tries to backup all 
+databases into a GZIP file. Therefore, leave these empty if you don't want to 
+backup mysql.
+
+MySQL credentials can be set trough one of the following methods:
+1. Defaults file: `--defaults-file=/etc/mysql/debian.cnf`
+2. Extra defailts file: `--defaults-extra-file=/root/.mysqldump`
+      ```bash
+      [mysql]
+      user=USERNAME
+      password=PASSWORD
+
+      [mysqldump]
+      user=USERNAME
+      password=PASSWORD
+      ```
+3. Inline (not recommended): `--user=USERNAME --password=PASSWORD`
+
+### Mysqldump encryption
+If you set `$MYSQLDUMP_PUBLIC_KEY`, the GZIP file will be encrypted using that 
+public key. You can generate a public key using:
+    `openssl req -x509 -nodes -newkey rsa:2048 -keyout PRIVATE.key -out PUBLIC.pem`
+
+If your mysql instance has encryption enabled, change `$MYSQLDUMP` accordingly:
+    `mysqldump --defaults-file=/etc/mysql/debian.cnf --ssl-mode=VERIFY_CA --ssl-ca=ca.pem --ssl-cert=client-cert.pem --ssl-key=client-key.pem`
+
+### Mysqldump decryption
+Finally, the encrypted GZIP file can be decrypted using the private key:
+    `openssl smime -decrypt -inform DER -in EXAMPLE.sql.gz.enc -inkey PRIVATE.key > EXAMPLE.sql.gz`
+
 ## Contributing
 
 Any bugs or ideas for improvement can be reported using GitHub's Issues thingy.

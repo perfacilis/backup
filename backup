@@ -3,8 +3,8 @@
 # Description:  Create back-ups of dirs and dbs by copying them to Perfacilis' back-up servers
 #               We strongly recommend to put this in /etc/cron.hourly/backup
 # Author:       Roy Arisse <support@perfacilis.com>
-# See:          https://www.perfacilis.com/blog/systeembeheer/linux/rsync-daily-weekly-monthly-incremental-back-ups.html
-# Version:      0.12.2
+# See:          https://github.com/perfacilis/backup
+# Version:      0.13
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -17,6 +17,7 @@ readonly RSYNC_SECRET='RSYNCSECRETHERE'
 
 readonly MYSQL="mysql --defaults-file=/etc/mysql/debian.cnf"
 readonly MYSQLDUMP="mysqldump --defaults-file=/etc/mysql/debian.cnf -E -R --max-allowed-packet=512MB -q --single-transaction -Q --skip-comments"
+readonly MYSQLDUMP_PUBLIC_KEY=""
 
 # Amount of increments per interval and duration per interval resp.
 readonly -A INCREMENTS=([hourly]=24 [daily]=7 [weekly]=4 [monthly]=12 [yearly]=5)
@@ -201,7 +202,11 @@ backup_mysql() {
     fi
 
     log "- $DB"
-    $MYSQLDUMP $DB | gzip --rsyncable > $BACKUP_LOCAL_DIR/$DB.sql.gz
+    if [ -z "$MYSQLDUMP_PUBLIC_KEY" ]; then
+      $MYSQLDUMP $DB | gzip --rsyncable > $BACKUP_LOCAL_DIR/$DB.sql.gz
+    else
+      $MYSQLDUMP $DB | gzip -c | openssl smime -encrypt -binary -text -aes256 -out $BACKUP_LOCAL_DIR/$DB.sql.gz.enc -outform DER $MYSQLDUMP_PUBLIC_KEY
+    fi
   done
 }
 
