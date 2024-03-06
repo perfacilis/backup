@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly/backup
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://github.com/perfacilis/backup
-# Version:      0.13
+# Version:      0.13.1
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -39,14 +39,15 @@ log() {
 }
 
 check_only_instance() {
-  # Assign file handle Bob to this script, because we can
-  exec 808<$0
-  flock -n 808
+  local lockfile="$BACKUP_LOCAL_DIR/lock"
 
-  if [ $? -gt 0 ]; then
+  if [ -f $lockfile ]; then
     log "Already running"
     exit 0
   fi
+
+  date > $lockfile
+  trap "rm -f $lockfile" EXIT
 }
 
 prepare_local_dir() {
@@ -266,8 +267,8 @@ main() {
 
   trap "cleanup" EXIT
 
-  check_only_instance
   prepare_local_dir
+  check_only_instance
 
   backup_packagelist
   backup_mysql
