@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly/backup
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://github.com/perfacilis/backup
-# Version:      0.13
+# Version:      0.13.1
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
