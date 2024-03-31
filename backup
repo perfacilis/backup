@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly/backup
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://github.com/perfacilis/backup
-# Version:      0.13.1
+# Version:      0.14
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -15,9 +15,9 @@ readonly RSYNC_DEFAULTS="-trlqpz4 --delete --delete-excluded --prune-empty-dirs"
 readonly RSYNC_EXCLUDE=(tmp/ temp/)
 readonly RSYNC_SECRET='RSYNCSECRETHERE'
 
-readonly MYSQL="mysql --defaults-file=/etc/mysql/debian.cnf"
-readonly MYSQLDUMP="mysqldump --defaults-file=/etc/mysql/debian.cnf -E -R --max-allowed-packet=512MB -q --single-transaction -Q --skip-comments"
-readonly MYSQLDUMP_PUBLIC_KEY=""
+readonly DB_LIST="$(mysql --defaults-file=/etc/mysql/debian.cnf -e 'show databases' | grep -v 'Database')"
+readonly DB_DUMP="mysqldump --defaults-file=/etc/mysql/debian.cnf -E -R --max-allowed-packet=512MB -q --single-transaction -Q --skip-comments"
+readonly DB_ENCRYPTION_KEY=""
 
 # Amount of increments per interval and duration per interval resp.
 readonly -A INCREMENTS=([hourly]=24 [daily]=7 [weekly]=4 [monthly]=12 [yearly]=5)
@@ -183,30 +183,26 @@ backup_packagelist() {
   dpkg --get-selections > $BACKUP_LOCAL_DIR/packagelist.txt
 }
 
-backup_mysql() {
-  local TODO=$(get_interval_to_backup)
-  local DB
+backup_databases() {
+  local TODO DB
+  TODO=$(get_interval_to_backup)
 
   if [ -z "$TODO" ]; then
     return
   fi
 
-  if [ -z "$MYSQL" -o -z "$MYSQLDUMP" ]; then
-    log "MySQL not set up, skipping database backup."
+  if [ -z "$DB_LIST" ] || [ -z "$DB_DUMP" ]; then
+    log "Skipping database backup!"
     return
   fi
 
-  log "Back-up mysql databases:"
-  for DB in `$MYSQL -e 'show databases' | grep -v 'Database'`; do
-    if [ $DB = 'information_schema' -o $DB = 'performance_schema' ]; then
-      continue
-    fi
-
+  log "Back-up databases:"
+  for DB in $DB_LIST; do
     log "- $DB"
-    if [ -z "$MYSQLDUMP_PUBLIC_KEY" ]; then
-      $MYSQLDUMP $DB | gzip --rsyncable > $BACKUP_LOCAL_DIR/$DB.sql.gz
+    if [ -z "$DB_ENCRYPTION_KEY" ]; then
+      $DB_DUMP "$DB" | gzip --rsyncable > "$BACKUP_LOCAL_DIR/$DB.sql.gz"
     else
-      $MYSQLDUMP $DB | gzip -c | openssl smime -encrypt -binary -text -aes256 -out $BACKUP_LOCAL_DIR/$DB.sql.gz.enc -outform DER $MYSQLDUMP_PUBLIC_KEY
+      $DB_DUMP "$DB" | gzip -c | openssl smime -encrypt -binary -text -aes256 -out "$BACKUP_LOCAL_DIR/$DB.sql.gz.enc" -outform DER "$DB_ENCRYPTION_KEY"
     fi
   done
 }
@@ -271,7 +267,7 @@ main() {
   check_only_instance
 
   backup_packagelist
-  backup_mysql
+  backup_databases
   backup_folders
 
   signoff_increments $starttime
