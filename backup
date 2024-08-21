@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly/backup
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://github.com/perfacilis/backup
-# Version:      0.14
+# Version:      0.14.1
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -147,23 +147,24 @@ get_interval_to_backup() {
 }
 
 get_rsync_opts() {
-  local EXCLUDE=`dirname $0`/rsync.exclude
-  local SECRET=`dirname $0`/rsync.secret
-  local OPTS="$RSYNC_DEFAULTS"
+  EXCLUDE=$(dirname $0)/rsync.exclude
+  SECRET=$(dirname $0)/rsync.secret
+  OPTS=$RSYNC_DEFAULTS
+  local EXCLUDE SECRET OPTS
 
-  if [ ! -z "$RSYNC_EXCLUDE" ]; then
+  if [ -n "$RSYNC_EXCLUDE" ]; then
     if [ ! -f $EXCLUDE ]; then
-      printf '%s\n' "${RSYNC_EXCLUDE[@]}" > $EXCLUDE
-      chmod 600 $EXCLUDE
+      printf '%s\n' "${RSYNC_EXCLUDE[@]}" > "$EXCLUDE"
+      chmod 600 "$EXCLUDE"
     fi
 
     OPTS="$OPTS --exclude-from=$EXCLUDE"
   fi
 
   if [ ! -z "$RSYNC_SECRET" ]; then
-    if [ ! -f $SECRET ]; then
-      echo $RSYNC_SECRET > $SECRET
-      chmod 600 $SECRET
+    if [ ! -f "$SECRET" ]; then
+      echo "$RSYNC_SECRET" > "$SECRET"
+      chmod 600 "$SECRET"
     fi
 
     OPTS="$OPTS --password-file=$SECRET"
