@@ -107,7 +107,7 @@ You'll have to set up SSH Public Key authentication:
 
 ```bash
 readonly RSYNC_TARGET="username@backup.perfacilis.com:/path/on/ssh/server"
-readonly RSYNC_DEFAULTS="-trlqpz4 --delete --delete-excluded --prune-empty-dirs -e 'ssh'"
+readonly RSYNC_DEFAULTS="-trlqpz4 --delete --delete-excluded --prune-empty-dirs -e "'"ssh -p 2222"'""
 readonly RSYNC_EXCLUDE=(tmp/ temp/)
 readonly RSYNC_SECRET=''
 ```

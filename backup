@@ -8,7 +8,7 @@
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
-readonly BACKUP_DIRS=($BACKUP_LOCAL_DIR /home /root /etc /var/www)
+readonly BACKUP_DIRS=("$BACKUP_LOCAL_DIR" /home /root /etc /var/www)
 
 readonly RSYNC_TARGET="username@backup.perfacilis.com::profile"
 readonly RSYNC_DEFAULTS="-trlqpz4 --delete --delete-excluded --prune-empty-dirs"
@@ -147,10 +147,10 @@ get_interval_to_backup() {
 }
 
 get_rsync_opts() {
+  local EXCLUDE SECRET OPTS
   EXCLUDE=$(dirname $0)/rsync.exclude
   SECRET=$(dirname $0)/rsync.secret
   OPTS=$RSYNC_DEFAULTS
-  local EXCLUDE SECRET OPTS
 
   if [ -n "$RSYNC_EXCLUDE" ]; then
     if [ ! -f $EXCLUDE ]; then
