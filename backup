@@ -16,7 +16,7 @@ readonly RSYNC_EXCLUDE=(tmp/ temp/)
 readonly RSYNC_SECRET='RSYNCSECRETHERE'
 
 readonly DB_LIST="$(mysql --defaults-file=/etc/mysql/debian.cnf -e 'show databases' | grep -v 'Database')"
-readonly DB_DUMP="mysqldump --defaults-file=/etc/mysql/debian.cnf -E -R --max-allowed-packet=512MB -q --single-transaction -Q --skip-comments"
+readonly DB_DUMP="mysqldump --defaults-file=/etc/mysql/debian.cnf -E -R --max-allowed-packet=512MB -q --single-transaction -Q --skip-comments --skip-use-db"
 readonly DB_ENCRYPTION_KEY=""
 
 # Amount of increments per interval and duration per interval resp.
