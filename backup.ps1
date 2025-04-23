@@ -216,7 +216,7 @@ function backup_folders() {
         $DIR_CYG=$(prefix_cygdrive $DIR)
 
         log "- $DIR"
-        $ARGS="$RSYNC_OPTS --backup --backup-dir=$INCDIR $DIR_CYG/ $RSYNC_TARGET_CYG/current/$TARGET"
+        $ARGS="$RSYNC_OPTS --backup --backup-dir=`"$INCDIR`" `"$DIR_CYG/`" `"$RSYNC_TARGET_CYG/current/$TARGET`""
         Start-Process -FilePath "$RSYNC" -ArgumentList "$ARGS" -Wait -NoNewWindow
     }
 }
