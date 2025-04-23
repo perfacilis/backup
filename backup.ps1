@@ -4,7 +4,7 @@
 #               schtasks /Create /SC HOURLY /TN "Backup" /TR "C:\backup\backup.ps1" /RU SYSTEM
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://github.com/perfacilis/backup
-# Version:      0.1.1
+# Version:      0.1.2
 # Usage:        pwsh C:\backup\backup.ps1
 
 $BACKUP_LOCAL_DIR="C:\backup"
