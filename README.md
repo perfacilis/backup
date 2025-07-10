@@ -128,16 +128,18 @@ For **MariaDB** use `mariadb` instead of `mysql` and `mariadb-dump` instead of
 
 ```bash
 readonly DB_LIST="database1 database2"
-readonly DB_LIST="$(mysql --defaults-file=/etc/mysql/debian.cnf -e "SHOW DATABASES;" -B -N | grep -v 'Database')"
+readonly DB_LIST="$(mysql -Bse 'SHOW DATABASES')"
 
 readonly DB_DUMP="mysqldump --defaults-file=/etc/mysql/debian.cnf -E -R --max-allowed-packet=512MB -q --single-transaction -Q --skip-comments"
-readonly DB_NAME="mysqldump --defaults-file=/etc/mysql/debian.cnf --ssl-mode=VERIFY_CA --ssl-ca=ca.pem --ssl-cert=client-cert.pem --ssl-key=client-key.pem -E -R --max-allowed-packet=512MB -q --single-transaction -Q --skip-comments"
+readonly DB_DUMP="mysqldump --defaults-file=/etc/mysql/debian.cnf --ssl-mode=VERIFY_CA --ssl-ca=ca.pem --ssl-cert=client-cert.pem --ssl-key=client-key.pem -E -R --max-allowed-packet=512MB -q --single-transaction -Q --skip-comments"
 readonly DB_DUMP="mysqldump --defaults-extra-file=/root/.mysqldump -E -R --max-allowed-packet=512MB -q --single-transaction -Q --skip-comments"
 readonly DB_DUMP="mysqldump --username=PLSDONT --password=PLSDONT -E -R --max-allowed-packet=512MB -q --single-transaction -Q --skip-comments"
 ```
 
-Example of `/root/.mysqldump` file:
-```bash
+The script runs as root, later versions of MySQL and MariaDB don't require any
+credentials, but if you want to use a specific user, you can create a
+defaults-file:
+```txt /root/.mysqldump
 [mysql]
 user=USERNAME
 password=PASSWORD
@@ -145,6 +147,16 @@ password=PASSWORD
 [mysqldump]
 user=USERNAME
 password=PASSWORD
+```
+
+### MySQL per table backup
+When `$DB_TABLE_LIST` is not empty, the script creates a GZIP file per TABLE
+instead of per DATABASE. Therefore, leave it empty if you want backups per
+DATABASE or if your DBMS doesn't support this.
+
+The command arguments needs to be defined as an array to support quotes:
+```bash
+readonly DB_TABLE_LIST=(mariadb -Bse "SELECT TABLE_NAME, Update_time FROM information_schema.tables WHERE TABLE_SCHEMA = '%DB%' ORDER BY TABLE_NAME;")
 ```
 
 ### PostgreSQL examples
@@ -164,19 +176,25 @@ sudo chmod 600 /root/.pgpass
 ```
 
 ### Database encryption
-If you set `$DB_ENCRYPTION_KEY`, the GZIP file will be encrypted using that 
-public key. You can generate a public key using:
-
+Point `$DB_ENCRYPTION_KEY` to a public key file to database dump files. This
+key file must be a PEM file, for example:
 ```bash
-openssl req -x509 -nodes -newkey rsa:2048 -keyout PRIVATE.key -out PUBLIC.pem
+openssl req -x509 -newkey rsa:2048 -nodes -keyout /root/backup.key -out /backup/backup.pem -days 3650 -subj "/CN=Backup Encryption"
 ```
 
-The encrypted GZIP file can be decrypted using the private key:
+The command generates 2 files:
+1. `/backup/public.pem`
+   The public key file used to encrypt the GZIP files;
+   This file can be safely stored in `/backup/`;
+   Use this like `readonly DB_ENCRYPTION_KEY="/backup/public.pem"`.
+2. `/root/private.key`
+    This key file is required to decrypt the GZIP files;
+    Keep this on a safe location, for example `/root/backup.key`.
 
+Decryption can be done with:
 ```bash
-openssl smime -decrypt -inform DER -in EXAMPLE.sql.gz.enc -inkey PRIVATE.key > EXAMPLE.sql.gz
+openssl smime -decrypt -inform DER -in EXAMPLE.sql.gz.enc -inkey /root/backup.key > EXAMPLE.sql.gz
 ```
-
 
 ## Contributing
 

@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly/backup
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://github.com/perfacilis/backup
-# Version:      0.14.2
+# Version:      0.15
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -15,8 +15,9 @@ readonly RSYNC_DEFAULTS="-trlqpz4 --delete --delete-excluded --prune-empty-dirs"
 readonly RSYNC_EXCLUDE=(tmp/ temp/)
 readonly RSYNC_SECRET='RSYNCSECRETHERE'
 
-readonly DB_LIST="$(mysql --defaults-file=/etc/mysql/debian.cnf -e 'show databases' | grep -v 'Database')"
-readonly DB_DUMP="mysqldump --defaults-file=/etc/mysql/debian.cnf -E -R --max-allowed-packet=512MB -q --single-transaction -Q --skip-comments"
+readonly DB_LIST=$(mariadb -Bse 'SHOW DATABASES')
+readonly DB_TABLE_LIST=()
+readonly DB_DUMP="mariadb-dump -E -R --max-allowed-packet=512MB -q --single-transaction -Q --skip-comments"
 readonly DB_ENCRYPTION_KEY=""
 
 # Amount of increments per interval and duration per interval resp.
@@ -29,12 +30,13 @@ set -e
 export LC_ALL=C
 
 log() {
-  MSG=`echo $1`
-  logger -p local0.notice -t `basename $0` -- $MSG
+  local TAG="${0##*/}"
+  local MSG="$*"
+  logger -p local0.notice -t "$TAG" -- "$MSG"
 
   # Interactive shell
-  if tty -s; then
-    echo $MSG
+  if tty -s < /dev/tty; then
+    echo "$MSG"
   fi
 }
 
@@ -199,11 +201,55 @@ backup_databases() {
 
   log "Back-up databases:"
   for DB in $DB_LIST; do
-    log "- $DB"
-    if [ -z "$DB_ENCRYPTION_KEY" ]; then
-      $DB_DUMP "$DB" | gzip --rsyncable > "$BACKUP_LOCAL_DIR/$DB.sql.gz"
+    log "+ $DB"
+
+    # If table dump returns false, dump entire database
+    if ! backup_database_tables "$DB"; then
+      if [ -n "$DB_ENCRYPTION_KEY" ]; then
+        $DB_DUMP "$DB" | gzip --rsyncable -c | openssl smime -encrypt -binary -text -aes256 -out "$BACKUP_LOCAL_DIR/$DB.sql.gz.enc" -outform DER "$DB_ENCRYPTION_KEY"
+      else
+        $DB_DUMP "$DB" | gzip --rsyncable > "$BACKUP_LOCAL_DIR/$DB.sql.gz"
+      fi
+    fi
+  done
+}
+
+backup_database_tables() {
+  local DUMP_FILE DUMP_FILE_UPDATED
+  local TABLE TABLE_UPDATED
+  local DB="$1"
+
+  if [ -z "$DB" ]; then
+    echo "Usage: backup_database_tables database_name"
+    exit 1
+  fi
+
+  # If not DB_TABLE_LIST, return error to dump entire database
+  if [ "${#DB_TABLE_LIST[@]}" -eq 0 ]; then
+    return 1;
+  fi
+
+  # Dump file per table
+  "${DB_TABLE_LIST[@]//%DB%/$DB}" | while read -r TABLE TABLE_UPDATED; do
+    DUMP_FILE="$BACKUP_LOCAL_DIR/$DB.$TABLE.sql.gz"
+    if [ -n "$DB_ENCRYPTION_KEY" ]; then
+      DUMP_FILE+=".enc"
+    fi
+
+    TABLE_UPDATED=$(date -d "$TABLE_UPDATED" +%s 2>/dev/null || echo "9999999999")
+    DUMP_FILE_UPDATED=$(date -r "$DUMP_FILE" +%s 2>/dev/null || echo "0")
+
+    # Skip if dump file is later than table update time
+    if [ "$DUMP_FILE_UPDATED" -ge "$TABLE_UPDATED" ]; then
+        continue
+    fi
+
+    log "  - $TABLE"
+
+    if [ -n "$DB_ENCRYPTION_KEY" ]; then
+      $DB_DUMP "$DB" "$TABLE" | gzip --rsyncable -c | openssl smime -encrypt -binary -text -aes256 -out "$DUMP_FILE" -outform DER "$DB_ENCRYPTION_KEY"
     else
-      $DB_DUMP "$DB" | gzip -c | openssl smime -encrypt -binary -text -aes256 -out "$BACKUP_LOCAL_DIR/$DB.sql.gz.enc" -outform DER "$DB_ENCRYPTION_KEY"
+      $DB_DUMP "$DB" "$TABLE" | gzip --rsyncable > "$DUMP_FILE"
     fi
   done
 }
