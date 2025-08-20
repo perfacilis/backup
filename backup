@@ -49,7 +49,7 @@ check_only_instance() {
   fi
 
   date > $lockfile
-  trap "rm -f $lockfile" EXIT
+  trap "rm -f $lockfile" EXIT SIGINT SIGTERM ERR
 }
 
 prepare_local_dir() {
@@ -299,8 +299,10 @@ signoff_increments() {
 }
 
 cleanup() {
-  rm -f `dirname $0`/rsync.exclude
-  rm -f `dirname $0`/rsync.secret
+  log "Cleanup"
+  rm -f "$(dirname $0)/rsync.exclude"
+  rm -f "$(dirname $0)/rsync.secret"
+  exit
 }
 
 main() {
@@ -308,7 +310,7 @@ main() {
 
   log "Back-up initiated at `date`"
 
-  trap "cleanup" EXIT
+  trap "cleanup" EXIT SIGINT SIGTERM ERR
 
   prepare_local_dir
   check_only_instance
