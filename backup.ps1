@@ -4,7 +4,7 @@
 #               schtasks /Create /SC HOURLY /TN "Backup" /TR "C:\backup\backup.ps1" /RU SYSTEM
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://github.com/perfacilis/backup
-# Version:      0.1.2
+# Version:      0.1.3
 # Usage:        pwsh C:\backup\backup.ps1
 
 $BACKUP_LOCAL_DIR="C:\backup"
@@ -12,7 +12,7 @@ $BACKUP_DIRS=@($BACKUP_LOCAL_DIR, "C:\Users", "C:\ProgramData", "C:\Program File
 
 $RSYNC_TARGET="username@backup.perfacilis.com::profile"
 $RSYNC_DEFAULTS="-trlqz4 --delete --delete-excluded --prune-empty-dirs"
-$RSYNC_EXCLUDE=@("tmp/", "temp/", "rsync/", "*.dmp", "*.tmp", "*.tmp.*")
+$RSYNC_EXCLUDE=@("rsync/", "*/[Tt]emp/", "*[Cc]ache*", "*.dmp", "*.tmp", "*.bak", "weights.bin")
 $RSYNC_SECRET="RSYNCSECRETHERE"
 
 # Amount of increments per interval and duration per interval resp.
