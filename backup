@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly/backup
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://github.com/perfacilis/backup
-# Version:      0.15.1
+# Version:      0.15.2
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -12,7 +12,7 @@ readonly BACKUP_DIRS=("$BACKUP_LOCAL_DIR" /home /root /etc /var/www)
 
 readonly RSYNC_TARGET="username@backup.perfacilis.com::profile"
 readonly RSYNC_DEFAULTS="-trlqpz4 --delete --delete-excluded --prune-empty-dirs"
-readonly RSYNC_EXCLUDE=(tmp/ temp/)
+readonly RSYNC_EXCLUDE=(tmp/ temp/ .cache/ cache/)
 readonly RSYNC_SECRET='RSYNCSECRETHERE'
 
 readonly DB_LIST=$(mariadb -Bse 'SHOW DATABASES')
@@ -42,22 +42,20 @@ log() {
 
 check_only_instance() {
   local LOCKFILE="$BACKUP_LOCAL_DIR/lock"
-  local NOW LAST=0 DIFF
+  local PID
 
   if [ -f "$LOCKFILE" ]; then
-    NOW=$(date +%s)
-    LAST=$(date -r "$LOCKFILE" +%s)
-    DIFF=$((NOW - LAST))
-    if [ $DIFF -ge 86400 ]; then
-      log "Remove lockfile after one day"
+    PID=$(sed -r 's/[^0-9]//g' "$LOCKFILE")
+    if [ -z "$PID" ] || ! ps q "$PID" > /dev/null; then
+      log "Remove lockfile (no such process $PID)"
       rm "$LOCKFILE"
     else
-      log "Already running"
+      log "Already running as $PID"
       exit 0
     fi
   fi
 
-  date > $LOCKFILE
+  echo $$ > $LOCKFILE
   trap "rm -f $LOCKFILE" EXIT SIGINT SIGTERM ERR
 }
 
