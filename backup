@@ -4,7 +4,7 @@
 #               We strongly recommend to put this in /etc/cron.hourly/backup
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://github.com/perfacilis/backup
-# Version:      0.15.2
+# Version:      0.15.3
 # Usage:        bash /etc/cron.hourly/backup
 
 readonly BACKUP_LOCAL_DIR="/backup"
@@ -35,7 +35,7 @@ log() {
   logger -p local0.notice -t "$TAG" -- "$MSG"
 
   # Interactive shell
-  if tty -s < /dev/tty; then
+  if [ -e /dev/tty ] && tty -s < /dev/tty; then
     echo "$MSG"
   fi
 }
