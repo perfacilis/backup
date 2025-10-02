@@ -4,7 +4,7 @@
 #               schtasks /Create /SC HOURLY /TN "Backup" /TR "C:\backup\backup.ps1" /RU SYSTEM
 # Author:       Roy Arisse <support@perfacilis.com>
 # See:          https://github.com/perfacilis/backup
-# Version:      0.1.3
+# Version:      0.1.4
 # Usage:        pwsh C:\backup\backup.ps1
 
 $BACKUP_LOCAL_DIR="C:\backup"
@@ -12,7 +12,7 @@ $BACKUP_DIRS=@($BACKUP_LOCAL_DIR, "C:\Users", "C:\ProgramData", "C:\Program File
 
 $RSYNC_TARGET="username@backup.perfacilis.com::profile"
 $RSYNC_DEFAULTS="-trlqz4 --delete --delete-excluded --prune-empty-dirs"
-$RSYNC_EXCLUDE=@("rsync/", "*/[Tt]emp/", "*[Cc]ache*", "*.dmp", "*.tmp", "*.bak", "weights.bin")
+$RSYNC_EXCLUDE=@("rsync/", "*/[Tt]emp/", "*[Cc]ache*", "*.dmp", "*.tmp", "*.bak", "*.db", "*.mdmp", "weights.bin")
 $RSYNC_SECRET="RSYNCSECRETHERE"
 
 # Amount of increments per interval and duration per interval resp.
@@ -22,7 +22,7 @@ $DURATIONS=@{hourly=3600; daily=86400; weekly=604800; monthly=2419200; yearly=31
 # ++++++++++ NO CHANGES REQUIRED BELOW THIS LINE ++++++++++
 
 $ErrorActionPreference = "Stop"
-$RSYNC="rsync/bin/rsync.exe"
+$RSYNC="C:/backup/rsync/bin/rsync.exe"
 
 function log() {
     Param(
